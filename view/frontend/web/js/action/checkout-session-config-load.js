@@ -23,6 +23,9 @@
     'use strict';
 
     var callbacks = []; 
+    // Reuse the cached button config for this many milliseconds instead of
+    // re-fetching it on every distinct page view.
+    var configCacheLifetime = 10 * 60 * 1000;
     var localStorage = null;
     var getLocalStorage = function () {
         if (localStorage === null) {
@@ -36,12 +39,14 @@
         if (forceReload
             || cartId !== getLocalStorage().get('cart_id')
             || typeof config.checkout_payload === 'undefined'
-            || !config.checkout_payload.includes(document.URL.slice(0, -1))) {
+            || !getLocalStorage().get('config_time')
+            || (new Date().getTime() - getLocalStorage().get('config_time')) > configCacheLifetime) {
             callbacks.push(callback);
             if (callbacks.length == 1) {
                 remoteStorage.get(url.build('amazon_pay/checkout/config')).done(function (config) {
                     getLocalStorage().set('cart_id', cartId);
                     getLocalStorage().set('config', config);
+                    getLocalStorage().set('config_time', new Date().getTime());
                     do {
                         callbacks.shift()(config);
                     } while (callbacks.length);
